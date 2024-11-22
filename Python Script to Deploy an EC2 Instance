@@ -1,1 +1,103 @@
+import boto3
+from time import sleep
 
+# Initialize a session using Amazon EC2
+ec2 = boto3.client('ec2', region_name='us-west-2')  # You can change the region to your preference
+
+def create_instance():
+    try:
+        # Create an EC2 instance
+        print("Launching EC2 instance...")
+        response = ec2.run_instances(
+            ImageId='ami-id',  # Replace with the AMI ID for your region
+            InstanceType='t2.micro',  # Instance type (t2.micro is eligible for the free tier)
+            MinCount=1,  # Minimum number of instances
+            MaxCount=1,  # Maximum number of instances
+            KeyName='your-key-pair-name',  # Replace with your EC2 key pair name
+            SecurityGroupIds=['sg-id'],  # Replace with your security group ID
+            SubnetId='subnet-id',  # Replace with your subnet ID
+        )
+        instance_id = response['Instances'][0]['InstanceId']
+        print(f"Instance created with ID: {instance_id}")
+        
+        # Wait for the instance to enter 'running' state
+        print("Waiting for instance to start...")
+        ec2.get_waiter('instance_running').wait(InstanceIds=[instance_id])
+
+        # Describe the instance to get the public IP
+        instance_details = ec2.describe_instances(InstanceIds=[instance_id])
+        public_ip = instance_details['Reservations'][0]['Instances'][0]['PublicIpAddress']
+        print(f"Instance is running and accessible at IP: {public_ip}")
+
+        return instance_id, public_ip
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+def stop_instance(instance_id):
+    try:
+        # Stop the instance
+        print(f"Stopping instance {instance_id}...")
+        ec2.stop_instances(InstanceIds=[instance_id])
+        print(f"Instance {instance_id} is stopping...")
+        
+        # Wait for the instance to stop
+        ec2.get_waiter('instance_stopped').wait(InstanceIds=[instance_id])
+        print(f"Instance {instance_id} has stopped.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+def terminate_instance(instance_id):
+    try:
+        # Terminate the instance
+        print(f"Terminating instance {instance_id}...")
+        ec2.terminate_instances(InstanceIds=[instance_id])
+        print(f"Instance {instance_id} is terminating...")
+        
+        # Wait for the instance to terminate
+        ec2.get_waiter('instance_terminated').wait(InstanceIds=[instance_id])
+        print(f"Instance {instance_id} has been terminated.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == '__main__':
+    # Step 1: Create an EC2 instance
+    instance_id, public_ip = create_instance()
+
+    # Wait for a few seconds to demonstrate running state (you can replace with more meaningful logic)
+    sleep(5)
+
+    # Step 2: Stop the EC2 instance (optional)
+    # stop_instance(instance_id)
+
+    # Step 3: Terminate the EC2 instance (optional)
+    # terminate_instance(instance_id)
+
+
+
+Breakdown of the Script:
+Initialization: We initialize the boto3 EC2 client to interact with the AWS EC2 service. You can specify the AWS region to interact with.
+
+create_instance() Function:
+
+Uses run_instances() to create an EC2 instance with a given AMI ID (ami-0c55b159cbfafe1f0 is just an example—replace it with a valid AMI ID for your region).
+The script waits for the instance to reach the "running" state using the get_waiter('instance_running') method.
+After the instance starts, the script fetches the public IP address and displays it.
+stop_instance() Function:
+
+Stops the EC2 instance using stop_instances().
+Waits until the instance reaches the "stopped" state.
+terminate_instance() Function:
+
+Terminates the EC2 instance using terminate_instances().
+Waits for the instance to be fully terminated.
+Main Program Flow:
+The script first creates the instance, then waits briefly (you can add more meaningful delays or logic), and optionally stops and terminates the instance.
+
+
+Running the Script:
+Replace the placeholders like KeyName, SecurityGroupIds, and SubnetId with actual values from your AWS environment.
+Ensure you have the appropriate IAM roles and permissions to perform EC2 operations.
+Save the script as deploy_ec2.py and run it using
+
+python deploy_ec2.py
